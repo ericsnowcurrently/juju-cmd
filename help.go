@@ -44,12 +44,23 @@ func (c *helpCommand) addTopic(name, short string, long func() string, aliases .
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{name, short, long, false}
+	c.topics[name] = topic{
+		name:    name,
+		short:   short,
+		long:    long,
+		isAlias: false,
+		aliases: aliases,
+	}
 	for _, alias := range aliases {
 		if _, found := c.topics[alias]; found {
 			panic(fmt.Sprintf("help topic already added: %s", alias))
 		}
-		c.topics[alias] = topic{alias, short, long, true}
+		c.topics[alias] = topic{
+			name:    name,
+			short:   short,
+			long:    long,
+			isAlias: true,
+		}
 	}
 }
 
@@ -73,7 +84,7 @@ func (c *helpCommand) topicList() string {
 	var topics []string
 	longest := 0
 	for name, topic := range c.topics {
-		if topic.alias {
+		if topic.isAlias {
 			continue
 		}
 		if len(name) > longest {

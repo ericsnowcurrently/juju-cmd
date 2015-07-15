@@ -13,5 +13,22 @@ type topic struct {
 	long  func() string
 	// Help aliases are not output when topics are listed, but are used
 	// to search for the help topic
-	alias bool
+	isAlias bool
+	aliases []string
+}
+
+func newTopic(name, short string, long func() string, aliases ...string) topic {
+	return topic{
+		name:    name,
+		short:   short,
+		long:    long,
+		aliases: aliases,
+	}
+}
+
+func (copied topic) alias(name string) topic {
+	copied.name = name
+	copied.isAlias = true
+	copied.aliases = nil
+	return copied
 }
