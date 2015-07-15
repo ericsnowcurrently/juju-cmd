@@ -17,50 +17,37 @@ type helpCommand struct {
 	super     *SuperCommand
 	topic     string
 	topicArgs []string
-	topics    map[string]topic
+	topics    topics
 
 	target      *commandReference
 	targetSuper *SuperCommand
 }
 
 func (c *helpCommand) init() {
-	c.topics = map[string]topic{
-		"commands": {
-			short: "Basic help for all commands",
-			long:  func() string { return c.super.describeCommands(true) },
-		},
-		"global-options": {
-			short: "Options common to all commands",
-			long:  func() string { return c.globalOptions() },
-		},
-		"topics": {
-			short: "Topic list",
-			long:  func() string { return c.topicList() },
-		},
+	defaultTopics := []topic{{
+		name:  "commands",
+		short: "Basic help for all commands",
+		long:  func() string { return c.super.describeCommands(true) },
+	}, {
+		name:  "global-options",
+		short: "Options common to all commands",
+		long:  func() string { return c.globalOptions() },
+	}, {
+		name:  "topics",
+		short: "Topic list",
+		long:  func() string { return c.topicList() },
+	}}
+
+	c.topics = make(topics)
+	for _, topic := range defaultTopics {
+		c.topics.add(topic)
 	}
 }
 
 func (c *helpCommand) addTopic(name, short string, long func() string, aliases ...string) {
-	if _, found := c.topics[name]; found {
-		panic(fmt.Sprintf("help topic already added: %s", name))
-	}
-	c.topics[name] = topic{
-		name:    name,
-		short:   short,
-		long:    long,
-		isAlias: false,
-		aliases: aliases,
-	}
-	for _, alias := range aliases {
-		if _, found := c.topics[alias]; found {
-			panic(fmt.Sprintf("help topic already added: %s", alias))
-		}
-		c.topics[alias] = topic{
-			name:    name,
-			short:   short,
-			long:    long,
-			isAlias: true,
-		}
+	topic := newTopic(name, short, long, aliases...)
+	if err := c.topics.addWithAliases(topic); err != nil {
+		panic(err.Error())
 	}
 }
 

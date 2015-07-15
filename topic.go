@@ -4,7 +4,7 @@
 package cmd
 
 import (
-//"fmt"
+	"fmt"
 )
 
 type topic struct {
@@ -26,9 +26,48 @@ func newTopic(name, short string, long func() string, aliases ...string) topic {
 	}
 }
 
-func (copied topic) alias(name string) topic {
+func (copied topic) newAlias(name string) topic {
 	copied.name = name
 	copied.isAlias = true
 	copied.aliases = nil
 	return copied
+}
+
+type topics map[string]topic
+
+func (t topics) add(topic topic) error {
+	if _, found := t[topic.name]; found {
+		return fmt.Errorf("help topic already added: %s", topic.name)
+	}
+	t[topic.name] = topic
+	return nil
+}
+
+func (t topics) addWithAliases(topic topic) error {
+	var added []string
+
+	if err := t.add(topic); err != nil {
+		return err
+	}
+	added = append(added, topic.name)
+
+	for _, alias := range topic.aliases {
+		if err := t.add(topic.newAlias(alias)); err != nil {
+			for _, name := range added {
+				delete(t, name)
+			}
+			return err
+		}
+		added = append(added, alias)
+	}
+
+	return nil
+}
+
+func (t topics) addAlias(name, alias string) error {
+	topic, ok := t[name]
+	if !ok {
+		return fmt.Errorf("topic %q not found", name)
+	}
+	return t.add(topic.newAlias(alias))
 }
