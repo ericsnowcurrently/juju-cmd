@@ -40,10 +40,6 @@ func (c *helpCommand) init() {
 	}
 }
 
-func echo(s string) func() string {
-	return func() string { return s }
-}
-
 func (c *helpCommand) addTopic(name, short string, long func() string, aliases ...string) {
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))

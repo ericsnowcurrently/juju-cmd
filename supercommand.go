@@ -144,6 +144,10 @@ func (c *SuperCommand) AddHelpTopic(name, short, long string, aliases ...string)
 	c.help.addTopic(name, short, echo(long), aliases...)
 }
 
+func echo(s string) func() string {
+	return func() string { return s }
+}
+
 // AddHelpTopicCallback adds a new help topic with the description being the
 // short param, and the full text being defined by the callback function.
 func (c *SuperCommand) AddHelpTopicCallback(name, short string, longCallback func() string) {
