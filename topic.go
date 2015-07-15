@@ -27,7 +27,10 @@ func newTopic(name, short string, long func() string, aliases ...string) topic {
 	}
 }
 
+// TODO(ericsnow) None of the topics methods are thread-safe...
+
 type topics struct {
+	order   []string
 	topics  map[string]topic
 	aliases map[string]string
 }
@@ -83,16 +86,15 @@ func (t *topics) lookUp(name string) (topic, bool) {
 }
 
 func (t *topics) add(topic topic) error {
-	// TODO(ericsnow) not thread-safe...
 	if _, found := t.lookUp(topic.name); found {
 		return fmt.Errorf("help topic already added: %s", topic.name)
 	}
 	t.topics[topic.name] = topic
+	t.order = append(t.order, topic.name)
 	return nil
 }
 
 func (t *topics) addWithAliases(topic topic) error {
-	// TODO(ericsnow) not thread-safe...
 	if err := t.add(topic); err != nil {
 		return err
 	}
@@ -100,9 +102,9 @@ func (t *topics) addWithAliases(topic topic) error {
 	var added []string
 	for _, alias := range topic.aliases {
 		if err := t.addAlias(topic.name, alias); err != nil {
-			delete(t.topics, topic.name)
+			t.remove(topic.name)
 			for _, name := range added {
-				delete(t.aliases, name)
+				t.remove(name)
 			}
 			return err
 		}
@@ -114,7 +116,6 @@ func (t *topics) addWithAliases(topic topic) error {
 
 func (t *topics) addAlias(name, alias string) error {
 	// TODO(ericsnow) Allow aliasing other aliases?
-	// TODO(ericsnow) not thread-safe...
 	if _, ok := t.topics[name]; !ok {
 		return fmt.Errorf("topic %q not found", name)
 	}
@@ -122,5 +123,47 @@ func (t *topics) addAlias(name, alias string) error {
 		return fmt.Errorf("topic %q already added", alias)
 	}
 	t.aliases[alias] = name
+	t.order = append(t.order, name)
 	return nil
+}
+
+func (t *topics) remove(name string) topic {
+	topic, ok := t.topics[name]
+	if !ok {
+		if _, ok := t.aliases[name]; !ok {
+			return topic
+		}
+		delete(t.aliases, name)
+	} else {
+		delete(t.topics, name)
+	}
+	t.order, _ = removeString(t.order, name)
+	return topic
+}
+
+func (t *topics) removeWithAliases(name string) topic {
+	topic := t.remove(name)
+	if topic.name == "" {
+		return topic
+	}
+	for _, alias := range topic.aliases {
+		if _, ok := t.topics[alias]; ok {
+			continue
+		}
+		t.remove(alias)
+	}
+	return topic
+}
+
+func removeString(items []string, target string) ([]string, bool) {
+	last := len(items) - 1
+	for i, item := range items {
+		if item == target {
+			if i == last {
+				return items[:i], true
+			}
+			return append(items[:i], items[i+1:]...), true
+		}
+	}
+	return items, false
 }
