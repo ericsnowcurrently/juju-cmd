@@ -13,6 +13,7 @@ import (
 )
 
 type topic struct {
+	name  string
 	short string
 	long  func() string
 	// Help aliases are not output when topics are listed, but are used
@@ -56,12 +57,12 @@ func (c *helpCommand) addTopic(name, short string, long func() string, aliases .
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{short, long, false}
+	c.topics[name] = topic{name, short, long, false}
 	for _, alias := range aliases {
 		if _, found := c.topics[alias]; found {
 			panic(fmt.Sprintf("help topic already added: %s", alias))
 		}
-		c.topics[alias] = topic{short, long, true}
+		c.topics[alias] = topic{alias, short, long, true}
 	}
 }
 
