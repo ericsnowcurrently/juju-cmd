@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 )
 
 type topic struct {
@@ -13,7 +15,6 @@ type topic struct {
 	long  func() string
 	// Help aliases are not output when topics are listed, but are used
 	// to search for the help topic
-	isAlias bool
 	aliases []string
 }
 
@@ -26,31 +27,64 @@ func newTopic(name, short string, long func() string, aliases ...string) topic {
 	}
 }
 
-func (copied topic) newAlias(name string) topic {
-	copied.name = name
-	copied.isAlias = true
-	copied.aliases = nil
-	return copied
-}
-
 type topics struct {
-	topics map[string]topic
+	topics  map[string]topic
+	aliases map[string]string
 }
 
 func newTopics(initial ...topic) (topics, error) {
 	t := topics{
-		topics: make(map[string]topic),
+		topics:  make(map[string]topic),
+		aliases: make(map[string]string),
 	}
 	for _, topic := range initial {
-		if err := t.add(topic); err != nil {
+		if err := t.addWithAliases(topic); err != nil {
 			return t, err
 		}
 	}
 	return t, nil
 }
 
+// String implements fmt.Stringer.
+func (t *topics) String() string {
+	// TODO(ericsnow) not thread-safe...
+	topics, longest := t.names()
+	for i, name := range topics {
+		shortHelp := t.topics[name].short
+		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
+	}
+	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
+}
+
+func (t *topics) names() ([]string, int) {
+	var names []string
+	longest := 0
+	for _, topic := range t.topics {
+		if len(topic.name) > longest {
+			longest = len(topic.name)
+		}
+		names = append(names, topic.name)
+	}
+	sort.Strings(names)
+	return names, longest
+}
+
+func (t *topics) lookUp(name string) (topic, bool) {
+	// TODO(ericsnow) not thread-safe...
+	topic, ok := t.topics[name]
+	if ok {
+		return topic, true
+	}
+	aliased, ok := t.aliases[name]
+	if ok {
+		return t.lookUp(aliased)
+	}
+	return topic, false
+}
+
 func (t *topics) add(topic topic) error {
-	if _, found := t.topics[topic.name]; found {
+	// TODO(ericsnow) not thread-safe...
+	if _, found := t.lookUp(topic.name); found {
 		return fmt.Errorf("help topic already added: %s", topic.name)
 	}
 	t.topics[topic.name] = topic
@@ -58,17 +92,17 @@ func (t *topics) add(topic topic) error {
 }
 
 func (t *topics) addWithAliases(topic topic) error {
-	var added []string
-
+	// TODO(ericsnow) not thread-safe...
 	if err := t.add(topic); err != nil {
 		return err
 	}
-	added = append(added, topic.name)
 
+	var added []string
 	for _, alias := range topic.aliases {
-		if err := t.add(topic.newAlias(alias)); err != nil {
+		if err := t.addAlias(topic.name, alias); err != nil {
+			delete(t.topics, topic.name)
 			for _, name := range added {
-				delete(t.topics, name)
+				delete(t.aliases, name)
 			}
 			return err
 		}
@@ -79,9 +113,14 @@ func (t *topics) addWithAliases(topic topic) error {
 }
 
 func (t *topics) addAlias(name, alias string) error {
-	topic, ok := t.topics[name]
-	if !ok {
+	// TODO(ericsnow) Allow aliasing other aliases?
+	// TODO(ericsnow) not thread-safe...
+	if _, ok := t.topics[name]; !ok {
 		return fmt.Errorf("topic %q not found", name)
 	}
-	return t.add(topic.newAlias(alias))
+	if _, ok := t.lookUp(alias); !ok {
+		return fmt.Errorf("topic %q already added", alias)
+	}
+	t.aliases[alias] = name
+	return nil
 }

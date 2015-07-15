@@ -6,7 +6,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -35,7 +34,7 @@ func (c *helpCommand) init() {
 	}, {
 		name:  "topics",
 		short: "Topic list",
-		long:  func() string { return c.topicList() },
+		long:  func() string { return c.topics.String() },
 	}}...)
 	if err != nil {
 		panic(err.Error())
@@ -64,26 +63,6 @@ command.
 	f.SetOutput(buf)
 	f.PrintDefaults()
 	return buf.String()
-}
-
-func (c *helpCommand) topicList() string {
-	var topics []string
-	longest := 0
-	for name, topic := range c.topics.topics {
-		if topic.isAlias {
-			continue
-		}
-		if len(name) > longest {
-			longest = len(name)
-		}
-		topics = append(topics, name)
-	}
-	sort.Strings(topics)
-	for i, name := range topics {
-		shortHelp := c.topics.topics[name].short
-		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
-	}
-	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
 }
 
 func (c *helpCommand) Info() *Info {
