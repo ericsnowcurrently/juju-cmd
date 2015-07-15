@@ -196,10 +196,10 @@ func (c *helpCommand) Run(ctx *Context) error {
 			helpArgs = append(helpArgs, c.topicArgs...)
 		}
 		command := &missingCommand{
-			callback:  c.super.missingCallback,
-			superName: c.super.Name,
-			name:      c.topic,
-			args:      helpArgs,
+			Callback:  c.super.missingCallback,
+			SuperName: c.super.Name,
+			Name:      c.topic,
+			Args:      helpArgs,
 		}
 		err := command.Run(ctx)
 		_, isUnrecognized := err.(*UnrecognizedCommand)

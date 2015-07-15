@@ -15,18 +15,6 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd")
 
-type UnrecognizedCommand struct {
-	Name string
-}
-
-func (e *UnrecognizedCommand) Error() string {
-	return fmt.Sprintf("unrecognized command: %s", e.Name)
-}
-
-// MissingCallback defines a function that will be used by the SuperCommand if
-// the requested subcommand isn't found.
-type MissingCallback func(ctx *Context, subcommand string, args []string) error
-
 // SuperCommandParams provides a way to have default parameter to the
 // `NewSuperCommand` call.
 type SuperCommandParams struct {
@@ -360,10 +348,10 @@ func (c *SuperCommand) Init(args []string) error {
 		if c.missingCallback != nil {
 			c.action = commandReference{
 				command: &missingCommand{
-					callback:  c.missingCallback,
-					superName: c.Name,
-					name:      args[0],
-					args:      args[1:],
+					Callback:  c.missingCallback,
+					SuperName: c.Name,
+					Name:      args[0],
+					Args:      args[1:],
 				},
 			}
 			// Yes return here, no Init called on missing Command.
@@ -431,29 +419,6 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		logger.Infof("command finished")
 	}
 	return err
-}
-
-type missingCommand struct {
-	CommandBase
-	callback  MissingCallback
-	superName string
-	name      string
-	args      []string
-}
-
-// Missing commands only need to supply Info for the interface, but this is
-// never called.
-func (c *missingCommand) Info() *Info {
-	return nil
-}
-
-func (c *missingCommand) Run(ctx *Context) error {
-	err := c.callback(ctx, c.name, c.args)
-	_, isUnrecognized := err.(*UnrecognizedCommand)
-	if !isUnrecognized {
-		return err
-	}
-	return &UnrecognizedCommand{c.superName + " " + c.name}
 }
 
 // Deprecated calls into the check interface if one was specified,
