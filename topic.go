@@ -5,8 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 )
 
 type topic struct {
@@ -48,32 +46,24 @@ func newTopics(initial ...topic) (topics, error) {
 	return t, nil
 }
 
-// String implements fmt.Stringer.
-func (t *topics) String() string {
-	// TODO(ericsnow) not thread-safe...
-	topics, longest := t.names()
-	for i, name := range topics {
-		shortHelp := t.topics[name].short
-		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
-	}
-	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
+func (t *topics) names() []string {
+	copied := make([]string, len(t.order))
+	copy(copied, t.order)
+	return copied
 }
 
-func (t *topics) names() ([]string, int) {
+func (t *topics) namesWithoutAliases() []string {
 	var names []string
-	longest := 0
-	for _, topic := range t.topics {
-		if len(topic.name) > longest {
-			longest = len(topic.name)
+	for _, name := range t.names() {
+		if _, ok := t.aliases[name]; ok {
+			continue
 		}
-		names = append(names, topic.name)
+		names = append(names, name)
 	}
-	sort.Strings(names)
-	return names, longest
+	return names
 }
 
 func (t *topics) lookUp(name string) (topic, bool) {
-	// TODO(ericsnow) not thread-safe...
 	topic, ok := t.topics[name]
 	if ok {
 		return topic, true

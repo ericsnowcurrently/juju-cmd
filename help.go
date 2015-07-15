@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -34,7 +35,7 @@ func (c *helpCommand) init() {
 	}, {
 		name:  "topics",
 		short: "Topic list",
-		long:  func() string { return c.topics.String() },
+		long:  func() string { return c.topicList() },
 	}}...)
 	if err != nil {
 		panic(err.Error())
@@ -65,6 +66,24 @@ command.
 	return buf.String()
 }
 
+func (c *helpCommand) topicList() string {
+	topics := c.topics.namesWithoutAliases()
+	sort.Strings(topics)
+
+	longest := 0
+	for _, name := range topics {
+		if len(name) > longest {
+			longest = len(name)
+		}
+	}
+	for i, name := range topics {
+		topic, _ := c.topics.lookUp(name)
+		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, topic.short)
+	}
+
+	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
+}
+
 func (c *helpCommand) Info() *Info {
 	return &Info{
 		Name:    "help",
@@ -81,7 +100,7 @@ func (c *helpCommand) Init(args []string) error {
 	if len(args) == 0 {
 		// If there is no help topic specified, print basic usage if it is
 		// there.
-		if _, ok := c.topics.topics["basics"]; ok {
+		if _, ok := c.topics.lookUp("basics"); ok {
 			c.topic = "basics"
 		}
 		return nil
@@ -165,7 +184,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 	}
 
 	// Look to see if the topic is a registered topic.
-	topic, ok := c.topics.topics[c.topic]
+	topic, ok := c.topics.lookUp(c.topic)
 	if ok {
 		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
 		return nil
