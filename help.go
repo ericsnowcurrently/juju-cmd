@@ -12,6 +12,14 @@ import (
 	"launchpad.net/gnuflag"
 )
 
+type topic struct {
+	short string
+	long  func() string
+	// Help aliases are not output when topics are listed, but are used
+	// to search for the help topic
+	alias bool
+}
+
 type helpCommand struct {
 	CommandBase
 	super     *SuperCommand
