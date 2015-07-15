@@ -24,7 +24,7 @@ type helpCommand struct {
 }
 
 func (c *helpCommand) init() {
-	defaultTopics := []topic{{
+	topics, err := newTopics([]topic{{
 		name:  "commands",
 		short: "Basic help for all commands",
 		long:  func() string { return c.super.describeCommands(true) },
@@ -36,12 +36,11 @@ func (c *helpCommand) init() {
 		name:  "topics",
 		short: "Topic list",
 		long:  func() string { return c.topicList() },
-	}}
-
-	c.topics = make(topics)
-	for _, topic := range defaultTopics {
-		c.topics.add(topic)
+	}}...)
+	if err != nil {
+		panic(err.Error())
 	}
+	c.topics = topics
 }
 
 func (c *helpCommand) addTopic(name, short string, long func() string, aliases ...string) {
@@ -70,7 +69,7 @@ command.
 func (c *helpCommand) topicList() string {
 	var topics []string
 	longest := 0
-	for name, topic := range c.topics {
+	for name, topic := range c.topics.topics {
 		if topic.isAlias {
 			continue
 		}
@@ -81,7 +80,7 @@ func (c *helpCommand) topicList() string {
 	}
 	sort.Strings(topics)
 	for i, name := range topics {
-		shortHelp := c.topics[name].short
+		shortHelp := c.topics.topics[name].short
 		topics[i] = fmt.Sprintf("%-*s  %s", longest, name, shortHelp)
 	}
 	return fmt.Sprintf("%s", strings.Join(topics, "\n"))
@@ -103,7 +102,7 @@ func (c *helpCommand) Init(args []string) error {
 	if len(args) == 0 {
 		// If there is no help topic specified, print basic usage if it is
 		// there.
-		if _, ok := c.topics["basics"]; ok {
+		if _, ok := c.topics.topics["basics"]; ok {
 			c.topic = "basics"
 		}
 		return nil
@@ -187,7 +186,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 	}
 
 	// Look to see if the topic is a registered topic.
-	topic, ok := c.topics[c.topic]
+	topic, ok := c.topics.topics[c.topic]
 	if ok {
 		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
 		return nil

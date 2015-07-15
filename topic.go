@@ -33,17 +33,31 @@ func (copied topic) newAlias(name string) topic {
 	return copied
 }
 
-type topics map[string]topic
+type topics struct {
+	topics map[string]topic
+}
 
-func (t topics) add(topic topic) error {
-	if _, found := t[topic.name]; found {
+func newTopics(initial ...topic) (topics, error) {
+	t := topics{
+		topics: make(map[string]topic),
+	}
+	for _, topic := range initial {
+		if err := t.add(topic); err != nil {
+			return t, err
+		}
+	}
+	return t, nil
+}
+
+func (t *topics) add(topic topic) error {
+	if _, found := t.topics[topic.name]; found {
 		return fmt.Errorf("help topic already added: %s", topic.name)
 	}
-	t[topic.name] = topic
+	t.topics[topic.name] = topic
 	return nil
 }
 
-func (t topics) addWithAliases(topic topic) error {
+func (t *topics) addWithAliases(topic topic) error {
 	var added []string
 
 	if err := t.add(topic); err != nil {
@@ -54,7 +68,7 @@ func (t topics) addWithAliases(topic topic) error {
 	for _, alias := range topic.aliases {
 		if err := t.add(topic.newAlias(alias)); err != nil {
 			for _, name := range added {
-				delete(t, name)
+				delete(t.topics, name)
 			}
 			return err
 		}
@@ -64,8 +78,8 @@ func (t topics) addWithAliases(topic topic) error {
 	return nil
 }
 
-func (t topics) addAlias(name, alias string) error {
-	topic, ok := t[name]
+func (t *topics) addAlias(name, alias string) error {
+	topic, ok := t.topics[name]
 	if !ok {
 		return fmt.Errorf("topic %q not found", name)
 	}
