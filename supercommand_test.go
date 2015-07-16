@@ -71,7 +71,7 @@ func (s *SuperCommandSuite) TestRegister(c *gc.C) {
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, gc.PanicMatches, `command already registered: "flap"`)
+	c.Assert(badCall, gc.PanicMatches, `command "flap" already registered`)
 }
 
 func (s *SuperCommandSuite) TestAliasesRegistered(c *gc.C) {

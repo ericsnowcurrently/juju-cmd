@@ -45,6 +45,16 @@ func (a Action) Validate() error {
 	return nil
 }
 
+// Summary returns a short description of the action.
+func (a Action) Summary() string {
+	info := a.Command.Info()
+	purpose := info.Purpose
+	if a.AliasedName != "" {
+		purpose = "alias for '" + a.AliasedName + "'"
+	}
+	return purpose
+}
+
 // NewAlias creates a new Action with Name and AliasedName properly
 // set. Command is kept the same.
 func (a Action) NewAlias(alias string) Action {
@@ -53,6 +63,11 @@ func (a Action) NewAlias(alias string) Action {
 		AliasedName: a.Name,
 		Command:     a.Command,
 	}
+}
+
+// Info returns info about the action's command.
+func (a Action) Info() *Info {
+	return a.Command.Info()
 }
 
 // Init initialized the action's command.
@@ -140,20 +155,9 @@ func (reg *Registry) LookUp(path ...string) (Action, bool) {
 		}
 		action = next
 		if super, ok := action.Command.(*SuperCommand); ok {
-			var refActions []Action
-			for name, ref := range super.subcmds {
-				refAction := Action{
-					Name:        name,
-					AliasedName: ref.alias,
-					Command:     ref.command,
-					Aliases:     ref.command.Info().Aliases,
-				}
-				if ref.check != nil {
-					_, action.Replacement = ref.check.Deprecated()
-				}
-				refActions = append(refActions, refAction)
-			}
-			reg, _ = NewRegistry(refActions...)
+			reg = super.subcmds
+		} else {
+			break
 		}
 	}
 
@@ -170,7 +174,9 @@ func (reg *Registry) lookUp(name string) (Action, bool) {
 	}
 	if aliased, ok := reg.aliases[name]; ok {
 		action, ok := reg.actions[aliased]
-		return action, ok
+		if ok {
+			return action.NewAlias(name), true
+		}
 	}
 	return action, false
 }

@@ -113,7 +113,7 @@ func (t *topics) addAlias(name, alias string) error {
 		return fmt.Errorf("topic %q already added", alias)
 	}
 	t.aliases[alias] = name
-	t.order = append(t.order, name)
+	t.order = append(t.order, alias)
 	return nil
 }
 

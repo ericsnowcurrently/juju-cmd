@@ -19,7 +19,7 @@ type helpCommand struct {
 	topicArgs []string
 	topics    topics
 
-	target      *commandReference
+	target      *Action
 	targetSuper *SuperCommand
 }
 
@@ -105,30 +105,32 @@ func (c *helpCommand) Init(args []string) error {
 		}
 		return nil
 	}
+	topicName, args := args[0], args[1:]
 
 	// Before we start walking down the subcommand list, we want to check
 	// to see if the first part is there.
-	if _, ok := c.super.subcmds[args[0]]; !ok {
-		if c.super.missingCallback == nil && len(args) > 1 {
-			return fmt.Errorf("extra arguments to command help: %q", args[1:])
+	if _, ok := c.super.subcmds.LookUp(topicName); !ok {
+		if c.super.missingCallback == nil && len(args) > 0 {
+			return fmt.Errorf("extra arguments to command help: %q", args)
 		}
 		logger.Tracef("help not found, setting topic")
-		c.topic, c.topicArgs = args[0], args[1:]
+		c.topic, c.topicArgs = topicName, args
 		return nil
 	}
 
 	c.targetSuper = c.super
 	for len(args) > 0 {
-		c.topic, args = args[0], args[1:]
-		commandRef, ok := c.targetSuper.subcmds[c.topic]
+		c.topic = topicName
+		topicName, args = args[0], args[1:]
+		action, ok := c.targetSuper.subcmds.LookUp(c.topic)
 		if !ok {
 			return fmt.Errorf("subcommand %q not found", c.topic)
 		}
-		c.target = &commandRef
+		c.target = &action
 		// If there are more args and the target isn't a super command
 		// error out.
-		logger.Tracef("target name: %s", c.target.name)
-		if super, ok := c.target.command.(*SuperCommand); ok {
+		logger.Tracef("target name: %s", c.target.Name)
+		if super, ok := c.target.Command.(*SuperCommand); ok {
 			c.targetSuper = super
 		} else if len(args) > 0 {
 			return fmt.Errorf("extra arguments to command help: %q", args)
@@ -169,7 +171,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 
 	// If the topic is a registered subcommand, then run the help command with it
 	if c.target != nil {
-		ctx.Stdout.Write(c.getCommandHelp(c.targetSuper, c.target.command, c.target.alias))
+		ctx.Stdout.Write(c.getCommandHelp(c.targetSuper, c.target.Command, c.target.AliasedName))
 		return nil
 	}
 
@@ -178,7 +180,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 		// At this point, "help" is selected as the SuperCommand's
 		// current action, but we want the info to be printed
 		// as if there was nothing selected.
-		c.super.action.command = nil
+		c.super.action = Action{}
 		ctx.Stdout.Write(c.getCommandHelp(c.super, c.super, ""))
 		return nil
 	}
@@ -189,7 +191,8 @@ func (c *helpCommand) Run(ctx *Context) error {
 		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
 		return nil
 	}
-	// If we have a missing callback, call that with --help
+
+	// Otherwise, if we have a missing callback, call that with --help.
 	if c.super.missingCallback != nil {
 		helpArgs := []string{"--help"}
 		if len(c.topicArgs) > 0 {
