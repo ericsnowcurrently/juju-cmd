@@ -23,6 +23,16 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	return jc, tc, cmdtesting.InitCommand(jc, args)
 }
 
+func initDefenestratePlugins(args []string) (*cmd.SuperCommand, *TestCommand, error) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:    "jujutest",
+		Plugins: &cmd.Plugins{Prefix: "juju-", Title: "Juju Plugins"},
+	})
+	tc := &TestCommand{Name: "defenestrate"}
+	jc.Register(tc)
+	return jc, tc, cmdtesting.InitCommand(jc, args)
+}
+
 type SuperCommandSuite struct {
 	gitjujutesting.IsolationSuite
 }
@@ -33,7 +43,9 @@ const helpText = "\n    help\\s+- show help on a command or other topic"
 const helpCommandsText = "commands:" + helpText
 
 func (s *SuperCommandSuite) TestDispatch(c *gc.C) {
-	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "jujutest",
+	})
 	info := jc.Info()
 	c.Assert(info.Name, gc.Equals, "jujutest")
 	c.Assert(info.Args, gc.Equals, "<command> ...")
@@ -61,8 +73,11 @@ func (s *SuperCommandSuite) TestDispatch(c *gc.C) {
 	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["gibberish"\]`)
 
-	// --description must be used on it's own.
 	_, _, err = initDefenestrate([]string{"--description", "defenestrate"})
+	c.Assert(err, gc.ErrorMatches, `flag provided but not defined: --description`)
+
+	// --description must be used on it's own.
+	_, _, err = initDefenestratePlugins([]string{"--description", "defenestrate"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["defenestrate"\]`)
 }
 
@@ -241,7 +256,11 @@ func (s *SuperCommandSuite) TestNotifyRun(c *gc.C) {
 }
 
 func (s *SuperCommandSuite) TestDescription(c *gc.C) {
-	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Purpose: "blow up the death star"})
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:    "jujutest",
+		Purpose: "blow up the death star",
+		Plugins: &cmd.Plugins{Prefix: "juju-", Title: "Juju Plugins"},
+	})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--description"})

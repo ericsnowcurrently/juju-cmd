@@ -53,6 +53,7 @@ type SuperCommandParams struct {
 	Doc             string
 	Log             *Log
 	MissingCallback MissingCallback
+	Plugins         *Plugins
 	Aliases         []string
 	Version         string
 }
@@ -67,12 +68,39 @@ func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 		Log:             params.Log,
 		usagePrefix:     params.UsagePrefix,
 		missingCallback: params.MissingCallback,
+		plugins:         params.Plugins,
 		Aliases:         params.Aliases,
 		version:         params.Version,
 		notifyRun:       params.NotifyRun,
 	}
+	if command.plugins != nil {
+		command.missingCallback = mergeCallbacks(command.missingCallback, command.plugins.RunPlugin)
+	}
 	command.init()
 	return command
+}
+
+func mergeCallbacks(callbacks ...MissingCallback) MissingCallback {
+	var checked []MissingCallback
+	for _, callback := range callbacks {
+		if callback != nil {
+			checked = append(checked, callback)
+		}
+	}
+	if len(checked) == 0 {
+		return nil
+	}
+	return func(ctx *Context, subcommand string, args []string) error {
+		for _, callback := range checked {
+			err := callback(ctx, subcommand, args)
+			if _, ok := err.(*UnrecognizedCommand); ok {
+				// Try the next callback.
+				continue
+			}
+			return err
+		}
+		return &UnrecognizedCommand{Name: subcommand}
+	}
 }
 
 // DeprecationCheck is used to provide callbacks to determine if
@@ -118,6 +146,7 @@ type SuperCommand struct {
 	showDescription bool
 	showVersion     bool
 	missingCallback MissingCallback
+	plugins         *Plugins
 	notifyRun       func(string)
 }
 
@@ -156,6 +185,15 @@ func (c *SuperCommand) AddHelpTopic(name, short, long string, aliases ...string)
 // short param, and the full text being defined by the callback function.
 func (c *SuperCommand) AddHelpTopicCallback(name, short string, longCallback func() string) {
 	c.help.addTopic(name, short, longCallback)
+}
+
+// AddPluginsHelpTopic adds a new help topic with the description being the
+// short param, and the full text being defined by the callback function.
+func (c *SuperCommand) AddPluginsHelpTopic(short string) {
+	if c.plugins == nil {
+		panic("no plugins set")
+	}
+	c.help.addTopic("plugins", short, c.plugins.HelpTopic)
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -315,11 +353,13 @@ func (c *SuperCommand) SetCommonFlags(f *gnuflag.FlagSet) {
 	}
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
-	// In the case where we are providing the basis for a plugin,
-	// plugins are required to support the --description argument.
-	// The Purpose attribute will be printed (if defined), allowing
-	// plugins to provide a sensible line of text for 'juju help plugins'.
-	f.BoolVar(&c.showDescription, "description", false, "")
+	if c.plugins != nil {
+		// In the case where we are providing the basis for a plugin,
+		// plugins are required to support the --description argument.
+		// The Purpose attribute will be printed (if defined), allowing
+		// plugins to provide a sensible line of text for 'juju help plugins'.
+		f.BoolVar(&c.showDescription, "description", false, "")
+	}
 	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	c.commonflags.SetOutput(ioutil.Discard)
 	f.VisitAll(func(flag *gnuflag.Flag) {
