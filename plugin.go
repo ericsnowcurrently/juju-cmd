@@ -34,11 +34,9 @@ type Plugins struct {
 // NewPlugins returns a new Plugins.
 func NewPlugins(prefix, title string) *Plugins {
 	return &Plugins{
-		Prefix: prefix,
-		Title:  title,
-		NewPluginCommand: func(name string) Command {
-			return NewPluginCommand(name)
-		},
+		Prefix:           prefix,
+		Title:            title,
+		NewPluginCommand: NewPluginCommand,
 	}
 }
 
@@ -201,16 +199,8 @@ func (p Plugins) FindAll(path []string) []string {
 
 // PluginCommand is a Command that wraps a plugin for a super-command.
 type PluginCommand struct {
-	CommandBase
-	name string
+	Name string
 	args []string
-}
-
-// NewPluginCommand returns a new PluginCommand for the given name.
-func NewPluginCommand(name string) *PluginCommand {
-	return &PluginCommand{
-		name: name,
-	}
 }
 
 // Info is just a stub so that PluginCommand implements Command.
@@ -232,7 +222,7 @@ func (c *PluginCommand) Run(ctx *Context) error {
 
 // RunEnv runs the command in the given os environment.
 func (c *PluginCommand) RunEnv(ctx *Context, env []string) error {
-	command := exec.Command(c.name, c.args...)
+	command := exec.Command(c.Name, c.args...)
 	command.Env = env
 
 	// Now hook up stdin, stdout, stderr
@@ -249,4 +239,23 @@ func (c *PluginCommand) RunEnv(ctx *Context, env []string) error {
 		}
 	}
 	return err
+}
+
+type pluginCommand struct {
+	CommandBase
+	PluginCommand
+}
+
+// NewPluginCommand returns a new PluginCommand for the given name.
+func NewPluginCommand(name string) Command {
+	return &pluginCommand{
+		PluginCommand: PluginCommand{
+			Name: name,
+		},
+	}
+}
+
+// Init implements Command.
+func (c *pluginCommand) Init(args []string) error {
+	return c.PluginCommand.Init(args)
 }
