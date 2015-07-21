@@ -26,7 +26,7 @@ type pluginSuite struct {
 	testing.IsolationSuite
 	rootDir string
 	oldPath string
-	plugins cmd.Plugins
+	plugins *cmd.Plugins
 }
 
 var _ = gc.Suite(&pluginSuite{})
@@ -42,11 +42,8 @@ func (suite *pluginSuite) SetUpTest(c *gc.C) {
 	suite.oldPath = os.Getenv("PATH")
 	os.Setenv("PATH", "/bin:"+suite.rootDir)
 
-	suite.plugins = cmd.Plugins{
-		Prefix:       "juju-",
-		IgnoredFlags: []string{"-e"},
-		Title:        "Juju Plugins",
-	}
+	suite.plugins = cmd.NewPlugins("juju-", "Juju Plugins")
+	suite.plugins.IgnoredFlags = []string{"-e"}
 }
 
 func (suite *pluginSuite) TearDownTest(c *gc.C) {

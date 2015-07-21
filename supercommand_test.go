@@ -26,7 +26,7 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 func initDefenestratePlugins(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
-		Plugins: &cmd.Plugins{Prefix: "juju-", Title: "Juju Plugins"},
+		Plugins: cmd.NewPlugins("juju-", "Juju Plugins"),
 	})
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
@@ -259,7 +259,7 @@ func (s *SuperCommandSuite) TestDescription(c *gc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "blow up the death star",
-		Plugins: &cmd.Plugins{Prefix: "juju-", Title: "Juju Plugins"},
+		Plugins: cmd.NewPlugins("juju-", "Juju Plugins"),
 	})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := cmdtesting.Context(c)

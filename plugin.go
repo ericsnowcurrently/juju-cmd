@@ -23,21 +23,29 @@ type Plugins struct {
 	Prefix string
 	// IgnoredFlags is the list of non-bool flags that will be ignored.
 	IgnoredFlags []string
-	// Env is the extra OS environment variables to use for the plugin,
-	// in the format of "<name>=<value>".
-	Env []string
 	// Title is the title to use for the plugins help topic
 	// on the super-command.
 	Title string
+	// NewPluginCommand returns a Command that provides the functionality
+	// for the named plugin.
+	NewPluginCommand func(name string) Command
+}
+
+// NewPlugins returns a new Plugins.
+func NewPlugins(prefix, title string) *Plugins {
+	return &Plugins{
+		Prefix: prefix,
+		Title:  title,
+		NewPluginCommand: func(name string) Command {
+			return NewPluginCommand(name)
+		},
+	}
 }
 
 // RunPlugin may be used for SuperCommandParams.MissingCallback.
 func (p Plugins) RunPlugin(ctx *Context, subcommand string, args []string) error {
 	cmdName := p.Prefix + subcommand
-	plugin := &PluginCommand{
-		name: cmdName,
-		env:  p.Env,
-	}
+	plugin := p.NewPluginCommand(cmdName)
 
 	// We process common flags supported by the super-command.
 	// To do this, we extract only those supported flags from the
@@ -196,7 +204,13 @@ type PluginCommand struct {
 	CommandBase
 	name string
 	args []string
-	env  []string
+}
+
+// NewPluginCommand returns a new PluginCommand for the given name.
+func NewPluginCommand(name string) *PluginCommand {
+	return &PluginCommand{
+		name: name,
+	}
 }
 
 // Info is just a stub so that PluginCommand implements Command.
@@ -213,8 +227,13 @@ func (c *PluginCommand) Init(args []string) error {
 
 // Run implements Command.
 func (c *PluginCommand) Run(ctx *Context) error {
+	return c.RunEnv(ctx, os.Environ())
+}
+
+// RunEnv runs the command in the given os environment.
+func (c *PluginCommand) RunEnv(ctx *Context, env []string) error {
 	command := exec.Command(c.name, c.args...)
-	command.Env = append(os.Environ(), c.env...)
+	command.Env = env
 
 	// Now hook up stdin, stdout, stderr
 	command.Stdin = ctx.Stdin
